@@ -8,10 +8,6 @@
 var canvas;
 var gl;
 
-var numTimesToSubdivide = 5;
-
-var index = 0;
-
 var pointsArray = [];
 var normalsArray = [];
 var uvArray = [];
@@ -28,10 +24,8 @@ var fovy = 4.0;
 var near = 0.2;
 var far = 200.0;
 
-var va = vec4(0.0, 0.0, -1.0,1);
-var vb = vec4(0.0, 0.942809, 0.333333, 1);
-var vc = vec4(-0.816497, -0.471405, 0.333333, 1);
-var vd = vec4(0.816497, -0.471405, 0.333333,1);
+var frameDelta = 8;
+var lastFrame;
 
 var lightPosition = vec4(1.0, 1.0, 1.0, 0.0 );
 var lightAmbient = vec4(0.2, 0.2, 0.2, 1.0 );
@@ -52,12 +46,13 @@ var modelViewMatrixLoc, projectionMatrixLoc;
 
 var normalMatrix, normalMatrixLoc;
 
-var eye;
+var eye = vec3(0.0, 0.0, 0.0);
 var at = vec3(0.0, 0.3, -1.0);
 var up = vec3(0.0, 1.0, 0.0);
 
 var frogObject;
 var groundObject;
+var worldTransform;
 
 function configureTexture( image, program ) {
     texture = gl.createTexture();
@@ -91,14 +86,27 @@ window.onload = function init() {
     gl.enable(gl.DEPTH_TEST);
     program = initShaders( gl, "vertex-shader", "fragment-shader" );
     gl.useProgram( program );
-
+    lastFrame = Date.now();
 
     ambientProduct = mult(lightAmbient, materialAmbient);
     diffuseProduct = mult(lightDiffuse, materialDiffuse);
     specularProduct = mult(lightSpecular, materialSpecular);
 
-    frogObject = new Object("./frog.ply", document.getElementById("frogTex"), {"shininess": 20.0});
-    groundObject = new Object("./plane.ply", document.getElementById("groundTex"));
+    frogObject = new Object2([  "./models/frog_still.ply",
+                                "./models/frog_jump-01.ply",
+                                "./models/frog_jump-02.ply",
+                                "./models/frog_jump-03.ply",
+                                "./models/frog_jump-04.ply",
+                                "./models/frog_jump-05.ply",
+                                "./models/frog_jump-06.ply",
+                                "./models/frog_jump-07.ply",
+                                "./models/frog_jump-08.ply",
+                                "./models/frog_jump-09.ply"
+                            ],{
+                                "default": {"start": 0, "end": 1},
+                                "jump": {"start": 1, "end": 9}
+                            },{"shininess": 20.0});
+    groundObject = new Object1("./plane.ply");
     configureTexture(this.document.getElementById("texture"), program);
 
     var nBuffer = gl.createBuffer();
@@ -161,26 +169,29 @@ window.onload = function init() {
     } );
 
     // Event listener for mousewheel
-     window.addEventListener("wheel", function(e){
+    window.addEventListener("wheel", function(e){
          if( e.deltaY > 0.0 ) {
              zDist += 2;
          } else {
              zDist -= 2;
          }
-     }  );
+    }  );
 
+    window.addEventListener("keypress", function(e) {
+        frogObject.startAnimation("jump", translate(0,0,2));
+    });
     render();
 }
 
-class Object {
-    constructor(location, texture, options) {
+class Object1 {
+    constructor(location, options) {
         this.startIndex = pointsArray.length;
+
         var plyData = readFilePly(location);
         this.length = plyData.points.length;
         pointsArray.push(...plyData.points);
         normalsArray.push(...plyData.normals);
         uvArray.push(...plyData.uv)
-        this.texture = texture;
         this.options = options;
         this.shiniLoc = gl.getUniformLocation(program, "shininess");
     }
@@ -195,6 +206,64 @@ class Object {
             }
         }
         gl.drawArrays( gl.TRIANGLES, this.startIndex, this.length );
+    }
+}
+
+class Object2 {
+    constructor(location, animation, options) {
+        this.startIndex = pointsArray.length;
+        this.length = 0;
+        location.forEach(frame => {
+            var plyData = readFilePly(frame);
+            this.length = plyData.points.length;
+            pointsArray.push(...plyData.points);
+            normalsArray.push(...plyData.normals);
+            uvArray.push(...plyData.uv)
+        });
+        this.options = options;
+        this.shiniLoc = gl.getUniformLocation(program, "shininess");
+        this.frame = 0;
+        this.animation = animation;
+        this.currentAnim = "default";
+        this.center = vec4(0,0,0,1);
+        this.transformation = mat4();
+        this.targetCenter = vec4(0,0,0,1);
+    }
+
+    startAnimation(name, transformation) {
+        this.currentAnim = name;
+        this.frame = this.animation[name].start;
+        if(transformation){
+            this.targetCenter = mult(transformation, this.center);
+        }
+    }
+
+    animate() {
+        if(this.currentAnim != "default"){
+            if(this.frame >= this.animation[this.currentAnim].end){
+                this.frame = 0;
+                this.currentAnim = "default";
+                this.center = this.targetCenter;
+                this.transformation = translate(this.center[0], this.center[1], this.center[2]);
+            } else {
+                this.frame += 1;
+                var temp = mix(this.center, this.targetCenter, (this.frame - this.animation[this.currentAnim].start) / (this.animation[this.currentAnim].end - this.animation[this.currentAnim].start));
+                this.transformation = translate(temp[0], temp[1], temp[2]);
+            }
+        }
+    }
+
+    draw() {
+        if(!this.options){
+            gl.uniform1f( this.shiniLoc, 0.0);
+        }
+        else {
+            if(this.options.shininess != null){
+                gl.uniform1f( this.shiniLoc, this.options.shininess );
+            }
+        }
+        gl.drawArrays( gl.TRIANGLES, this.startIndex + this.length*(this.frame % 10), this.length );
+        worldTransform = this.transformation;
     }
 }
 
@@ -259,9 +328,13 @@ function loadFileAJAX(name) {
 
 function render() {
 
+    if(Date.now() - lastFrame > frameDelta){
+        frogObject.animate();
+        lastFrame = Date.now();
+    }
     gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    modelViewMatrix = lookAt( vec3(0.0, zDist, zDist), at, up );
+    modelViewMatrix = lookAt( vec3(0, zDist, zDist), at, up );
     modelViewMatrix = mult( modelViewMatrix, rotateY( spinY ) );
     modelViewMatrix = mult( modelViewMatrix, rotateX( spinX ) );
 
@@ -279,9 +352,10 @@ function render() {
     gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix) );
     gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix) );
     gl.uniformMatrix3fv(normalMatrixLoc, false, flatten(normalMatrix) );
-
+    
     frogObject.draw();
+    modelViewMatrix = mult(modelViewMatrix, worldTransform);
+    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix) );
     groundObject.draw();
-
     window.requestAnimFrame(render);
 }
