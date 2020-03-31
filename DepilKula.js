@@ -99,6 +99,7 @@ window.onload = function init() {
 
     frogObject = new Object("./frog.ply", document.getElementById("frogTex"), {"shininess": 20.0});
     groundObject = new Object("./plane.ply", document.getElementById("groundTex"));
+    configureTexture(this.document.getElementById("texture"), program);
 
     var nBuffer = gl.createBuffer();
     gl.bindBuffer( gl.ARRAY_BUFFER, nBuffer);
@@ -187,7 +188,6 @@ class Object {
     }
 
     draw() {
-        configureTexture( this.texture, program );
         if(!this.options){
             gl.uniform1f( this.shiniLoc, 0.0);
         }
