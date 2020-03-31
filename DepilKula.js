@@ -175,8 +175,6 @@ window.onload = function init() {
 class Object {
     constructor(location, texture, options) {
         this.startIndex = pointsArray.length;
-        // var PR = PlyReader();
-        // var plyData = PR.read(location);
         var plyData = readFilePly(location);
         this.length = plyData.points.length;
         pointsArray.push(...plyData.points);
@@ -201,13 +199,9 @@ class Object {
 }
 
 function readFilePly(s) {
-    var data;
-    if (typeof window === "undefined") {
-        var fs = require("fs");
-        data = fs.readFileSync(s) + "";
-    } else {
-        data = loadFileAJAX(s);
-    }
+
+    var data = loadFile(s);
+    
     var textArray = data.split("\n");
     var vertexCount = parseInt(textArray.filter(s => s.includes("element vertex"))[0].split(" ").pop());
     var faceCount = parseInt(textArray.filter(s => s.includes("element face"))[0].split(" ").pop())
@@ -238,6 +232,29 @@ function readFilePly(s) {
     });
 
     return {"points": outVert, "normals": outNorm, "uv": outUV}
+}
+
+function loadFile(file) {
+    var data;
+    if (typeof window === "undefined") {
+        var fs = require("fs");
+        data = fs.readFileSync(file) + "";
+    } else {
+        data = loadFileAJAX(file);
+    }
+    return data;
+}
+
+// Get a file as a string using  AJAX
+function loadFileAJAX(name) {
+    var xhr = new XMLHttpRequest(),
+        okStatus = document.location.protocol === "file:" ? 0 : 200;
+    var d = new Date();
+    //We add the current date to avoid caching of request
+    //Murder for development
+    xhr.open("GET", name + "?" + d.toJSON(), false);
+    xhr.send(null);
+    return xhr.status == okStatus ? xhr.responseText : null;
 }
 
 function render() {
