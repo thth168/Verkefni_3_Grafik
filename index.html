@@ -34,9 +34,9 @@ void main()
 
 precision mediump float;
 
-uniform vec4 ambientProduct;
-uniform vec4 diffuseProduct;
-uniform vec4 specularProduct;
+uniform vec4 lightAmbient;
+uniform vec4 lightDiffuse;
+uniform vec4 lightSpecular;
 uniform float shininess;
 uniform sampler2D texture;
 varying vec3 N, L, E;
@@ -47,20 +47,19 @@ void main()
     vec4 fColor;
     vec3 H = normalize( L + E );
 
-    vec4 ambient = ambientProduct;
+    vec4 ambient = texture2D( texture, fTexCoord ) * lightAmbient;
 
     float Id = max( dot(L, N), 0.0 );
-    // vec4  diffuse = Id*diffuseProduct;
-    vec4  diffuse = Id*texture2D( texture, fTexCoord );;
+    vec4  diffuse = Id*lightDiffuse*texture2D( texture, fTexCoord );
 
     // Blinn-Phong
-    float Is = pow( max(dot(N, H), 0.0), shininess );
-    vec4  specular = Is * specularProduct;
+    float Is = pow( max(dot(N, H), 0.0), diffuse.a*100.0 );
+    vec4  specular = Is * lightSpecular;
 
     if( dot(L, N) < 0.0 ) specular = vec4(0.0, 0.0, 0.0, 1.0);
 
     // Til a� minnka birtuna ef glansstu�ull er l�gur (HH)
-    if( shininess < 30.0 ) specular *= 0.03*shininess + 0.1;
+    if( diffuse.a*100.0 < 30.0 ) specular *= 0.03*diffuse.a*100.0 + 0.1;
     
     fColor = ambient + diffuse + specular;
     fColor.a = 1.0;
@@ -72,6 +71,8 @@ void main()
 <script type="text/javascript" src="./libraries/webgl-utils.js"></script>
 <script type="text/javascript" src="./libraries/initShaders.js"></script>
 <script type="text/javascript" src="./libraries/MV.js"></script>
+<script type="text/javascript" src="./modules/globals.js"></script>
+<script type="text/javascript" src="./modules/glObject.js"></script>
 <script type="text/javascript" src="DepilKula.js"></script>
 
 <body>
