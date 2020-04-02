@@ -71,7 +71,20 @@ window.onload = function init() {
     }  );
 
     window.addEventListener("keypress", function(e) {
-        frogObject.startAnimation("jump", translate(0,0,2));
+        switch(e.key) {
+            case 'w':
+                frogObject.startAnimation("jump", glObject.FORWARD_VEC3, vec3(0,0,0));
+                break;
+            case 's':
+                frogObject.startAnimation("jump", glObject.BACKWARD_VEC3, vec3(0,180,0));
+                break;
+            case 'a':
+                frogObject.startAnimation("jump", glObject.LEFT_VEC3, vec3(0,-90,0));
+                break;
+            case 'd':
+                frogObject.startAnimation("jump", glObject.RIGHT_VEC3, vec3(0,90,0));
+                break;
+        }
     });
     render();
 }
@@ -80,7 +93,7 @@ window.onload = function init() {
 function render() {
 
     if(Date.now() - lastFrame > frameDelta){
-        // trackFPS();
+        trackFPS();
         frogObject.animate();
         lastFrame = Date.now();
     }
@@ -101,11 +114,12 @@ function render() {
     // To make it proper
     normalMatrix = inverse(transpose(normalMatrix))
         
-    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix) );
+    // gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix) );
     gl.uniformMatrix4fv(projectionMatrixLoc, false, flatten(projectionMatrix) );
     gl.uniformMatrix3fv(normalMatrixLoc, false, flatten(normalMatrix) );
 
-    frogObject.draw();
+    frogObject.checkCollide(carObject, logObject);
+    frogObject.draw(modelViewMatrix);
     
     modelViewMatrix = mult(modelViewMatrix, translate(worldOffset));
     groundObject.draw(modelViewMatrix);

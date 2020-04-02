@@ -1,4 +1,9 @@
 class glObject {
+    static FORWARD_VEC3 = vec3(0,0,1)
+    static BACKWARD_VEC3 = vec3(0,0,-1)
+    static LEFT_VEC3 = vec3(1,0,0)
+    static RIGHT_VEC3 = vec3(-1,0,0)
+
     constructor(location, options) {
         this.length = 0;
         this.options = (options) ? options : {};
@@ -58,7 +63,8 @@ class glObject {
     draw(modelView) {
         this.switchToBuffer();
         if(modelView) {
-            gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(mult(modelView, translate(this.center))) );
+            var rotation = mult(rotateX(this.rotation[0]), mult(rotateY(this.rotation[1]),rotateZ(this.rotation[2])));
+            gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(mult(modelView, mult(rotation, translate(this.center)))) );
         }
         gl.drawArrays( gl.TRIANGLES, this.length * this.offset, this.length );
     }
@@ -77,7 +83,7 @@ class Frog extends glObject {
             "./models/frog_jump-07.ply",
             "./models/frog_jump-08.ply",
             "./models/frog_jump-09.ply"
-        ]);
+        ], {"shininess": 40.0});
         this.animations = (name) => {
             switch (name) {
                 case "jump":
@@ -87,38 +93,65 @@ class Frog extends glObject {
             }
         };
         this.runningAnimation = [0,0];
+        this.movementDirection = vec3(0,0,0);
     }
 
-    startAnimation(name) {
-        var animation = this.animations(name);
-        this.runningAnimation = [animation.start-1, animation.end];
+    startAnimation(name, direction, rotation) {
+        if(this.runningAnimation[1] == 0){
+            var animation = this.animations(name);
+            this.runningAnimation = [animation.start-1, animation.end];
+            this.movementDirection = direction;
+            this.rotation = rotation;
+        }
+    }
+
+    checkCollide(cars, logs) {
+        var water = true;
+        for (let i = 0; i < cars.carCenters.length; i++) {
+            // if(i == 0) console.log(cars.carCenters[0]);
+            if(Math.abs(cars.carCenters[i][2] + worldOffset[2]) <= 0.01 && Math.abs(cars.carCenters[i][0] + worldOffset[0]) < 1){
+                alert("GameOver");
+                worldOffset = vec3(0,0,0);
+            }
+            if(Math.abs(logs.logCenters[i][2] + worldOffset[2]) <= 0.01 && Math.abs(logs.logCenters[i][0] + worldOffset[0]) > 1){
+                water = water & true;
+            } else {
+                water = false;
+            }
+        }
+        if(water){
+            alert("GameOver");
+            worldOffset = vec3(0,0,0);
+        }
     }
 
     animate() {
         if(this.runningAnimation[1] - this.runningAnimation[0] > 0){
             this.runningAnimation[0]++;
             this.offset = this.runningAnimation[0];
-            worldOffset = add(worldOffset, vec3(0,0,2/9.0));
+            worldOffset = add(worldOffset, mult(scalem(this.movementDirection), vec4(2/9,2/9,2/9,0)).slice(0,3));
         } else {
             this.runningAnimation = [0,0];
             this.offset = 0;
         }
     }
 
-    draw() {
-        super.draw();
+    draw(modelView) {
+        super.draw(modelView);
     }
 }
 
 class Ground extends glObject {
     constructor() {
-        super(["./models/plane.ply"], {"tex": document.getElementById("roadTexture")});
+        super(["./models/plane.ply"], {"tex": document.getElementById("grassTexture")});
         this.road = new Road();
+        this.water = new Water();
     }
 
     draw(modelView){
         super.draw(modelView);
         this.road.draw(modelView);
+        this.water.draw(modelView);
     }
 }
 
@@ -132,15 +165,35 @@ class Car extends glObject {
     constructor() {
         super([ "./models/car_body.ply"], {"tex": document.getElementById("carTexture")});
         this.tires = new Tires();
-        this.center = vec3(0,0,-2);
+        this.carCenters = [
+            vec4(0,0,-2,0),
+            vec4(0,0,-4,1),
+            vec4(0,0,-6,2),
+            vec4(0,0,-8,3),
+            vec4(0,0,-10,4),
+            vec4(6,0,-4,1)
+        ];
+        this.laneSpeeds = [
+            -5/60,
+            4/60,
+            -3/60,
+            2/60,
+            -1/60
+        ];
+        this.speed = -5/60;
     }
 
     draw(modelView) {
         var transform = (modelView) ? modelView : mat4();
-        this.center = mult(translate(-1/30.0, 0, 0), vec4(this.center,1)).slice(0,3);
-        this.center[0] = this.center[0] % 14;
-        super.draw(transform);
-        this.tires.draw(mult(transform, translate(this.center))); 
+        for (let i = 0; i < this.carCenters.length; i++) {
+            this.center = this.carCenters[i].slice(0,3);
+            var laneIndex = this.carCenters[i][3];
+            this.center = mult(translate(this.laneSpeeds[laneIndex], 0, 0), vec4(this.center,1)).slice(0,3);
+            this.center[0] = (this.center[0] + 16 < 0 || this.center[0] - 16 > 0) ? -1 * this.center[0] : this.center[0];
+            super.draw(transform);
+            this.tires.draw(mult(transform, translate(this.center)));
+            this.carCenters[i] = vec4(this.center, laneIndex);
+        };
     }
 }
 
@@ -160,7 +213,7 @@ class Tires extends glObject {
         var transform = sign => mult(mult(modelView, translate(sign * 0.6,0.111,0)), rotateZ(-this.rotationOffset));
         super.draw(transform(1));
         super.draw(transform(-1));
-        this.rotationOffset += 16;
+        this.rotationOffset += 1;
     }
 }
 
@@ -168,13 +221,119 @@ class Log extends glObject {
     constructor() {
         super(["./models/log.ply"], {"tex": document.getElementById("logTexture"), "shininess": 4.0});  
         this.center = vec3(0,0,-14);
+        this.logCenters = [
+            //Röð 1
+            vec4(-15,0,-14, 0),
+            vec4(-13,0,-14, 0),
+            vec4(-11,0,-14, 0),
+
+            vec4(-5,0,-14, 0),
+            vec4(-3,0,-14, 0),
+            vec4(-1,0,-14, 0),
+
+            vec4(5,0,-14, 0),
+            vec4(7,0,-14, 0),
+            vec4(9,0,-14, 0),
+
+            vec4(15,0,-14, 0),
+            vec4(17,0,-14, 0),
+            vec4(19,0,-14, 0),
+
+            //Röð 2
+            vec4(-15,0,-16, 1),
+            vec4(-13,0,-16, 1),
+            vec4(-11,0,-16, 1),
+
+            vec4(-3,0,-16, 1),
+            vec4(-1,0,-16, 1),
+            vec4(1,0,-16, 1),
+
+            vec4(9,0,-16, 1),
+            vec4(11,0,-16, 1),
+            vec4(13,0,-16, 1),
+
+            //Röð 3
+            vec4(-15,0,-18, 2),
+            vec4(-13,0,-18, 2),
+            vec4(-11,0,-18, 2),
+            vec4(-9,0,-18, 2),
+            vec4(-7,0,-18, 2),
+
+            vec4(-1,0,-18, 2),
+            vec4(1,0,-18, 2),
+            vec4(3,0,-18, 2),
+            vec4(5,0,-18, 2),
+            vec4(7,0,-18, 2),
+            
+            vec4(11,0,-18, 2),
+            vec4(13,0,-18, 2),
+            vec4(15,0,-18, 2),
+            vec4(17,0,-18, 2),
+            vec4(19,0,-18, 2),
+
+            //Röð 4
+            vec4(-15,0,-20, 3),
+            vec4(-13,0,-20, 3),
+
+            vec4(-3,0,-20, 3),
+            vec4(-1,0,-20, 3),
+
+            vec4(7,0,-20, 3),
+            vec4(9,0,-20, 3),
+
+            vec4(17,0,-20, 3),
+            vec4(19,0,-20, 3),
+
+            //Röð 5
+            vec4(-15,0,-22, 4),
+            vec4(-13,0,-22, 4),
+            vec4(-11,0,-22, 4),
+            vec4(-9,0,-22, 4),
+            
+            vec4(-1,0,-22, 4),
+            vec4(1,0,-22, 4),
+            vec4(3,0,-22, 4),
+            vec4(5,0,-22, 4),
+                        
+            vec4(13,0,-22, 4),
+            vec4(15,0,-22, 4),
+            vec4(17,0,-22, 4),
+            vec4(19,0,-22, 4),
+        ];
+        this.laneSpeeds = [
+            -2/60,
+            4/60,
+            3/60,
+            -2/60,
+            1/60
+        ];
         this.bobOffset = 0;
     }
 
     draw(modelView) {
-        this.center = mult(translate(0,Math.sin(this.bobOffset/16) * 0.005, 0), vec4(this.center, 1)).slice(0,3);
-        this.bobOffset++;
+        for (let i = 0; i < this.logCenters.length; i++) {
+            this.center = this.logCenters[i].slice(0,3);
+            var laneIndex = this.logCenters[i][3];
+            this.logCenters[i] = vec4(mult(translate(this.laneSpeeds[laneIndex], 0, 0), vec4(this.center)).slice(0,3),laneIndex);    
+            if(this.logCenters[i][0] > 20) this.logCenters[i][0] = -20;
+            else if(this.logCenters[i][0] < -20) this.logCenters[i][0] = 20;
+            this.center = mult(translate(0,Math.sin(this.bobOffset/16) * 0.05, 0), vec4(this.center, 1)).slice(0,3);
+            super.draw(modelView);
+        }
+        this.bobOffset+=1.0/this.logCenters.length;
+    }
+}
+
+class Water extends glObject {
+    constructor() {
+        super(["./models/water.ply"], {"tex": document.getElementById("waterTexture"), "shininess": 40.0});
+    }
+
+    draw(modelView){
         super.draw(modelView);
+        super.draw(mult(modelView ,  translate(-56, 0, 0)));
+        this.center = mult(translate(0.05,0,0), vec4(this.center)).slice(0,3);
+        this.center[0] = this.center[0] % 56;
     }
 }
 
