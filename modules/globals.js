@@ -38,4 +38,6 @@ var up = vec3(0.0, 1.0, 0.0);
 
 var groundObject;
 var frogObject;
+var carObject;
+var logObject;
 var worldOffset = vec3(0,0,0);

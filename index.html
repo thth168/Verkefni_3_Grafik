@@ -53,13 +53,13 @@ void main()
     vec4  diffuse = Id*lightDiffuse*texture2D( texture, fTexCoord );
 
     // Blinn-Phong
-    float Is = pow( max(dot(N, H), 0.0), diffuse.a*100.0 );
+    float Is = pow( max(dot(N, H), 0.0), shininess );
     vec4  specular = Is * lightSpecular;
 
     if( dot(L, N) < 0.0 ) specular = vec4(0.0, 0.0, 0.0, 1.0);
 
     // Til a� minnka birtuna ef glansstu�ull er l�gur (HH)
-    if( diffuse.a*100.0 < 30.0 ) specular *= 0.03*diffuse.a*100.0 + 0.1;
+    if( shininess < 30.0 ) specular *= 0.03*shininess + 0.1;
     
     fColor = ambient + diffuse + specular;
     fColor.a = 1.0;
@@ -78,6 +78,9 @@ void main()
 <body>
     <canvas id="gl-canvas" width="512" height="512">
             Oops ... your browser doesn't support the HTML5 canvas element</canvas>
-    <img id = "texture" src = "Main_Tex.png" hidden></img>
+    <img id = "texture" src = "./textures/Main_Tex.png" hidden></img>
+    <img id = "carTexture" src="./textures/grass.png" hidden>
+    <img id ="logTexture" src="./textures/log.png" hidden>
+    <img id ="roadTexture" src="./textures/road.png" hidden>
 </body>
 </html>

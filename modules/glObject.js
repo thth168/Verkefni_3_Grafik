@@ -1,9 +1,12 @@
 class glObject {
     constructor(location, options) {
         this.length = 0;
-        this.options = options;
-        this.center = vec4(0,0,0,1);
+        this.options = (options) ? options : {};
+        this.center = vec3(0,0,0);
+        this.rotation = vec3(0,0,0);
         this.offset = 0;
+        this.image = (this.options.tex) ? this.options.tex : document.getElementById("texture");
+        this.texture = configureTexture(this.image, program);
 
         var vertexArray = [];
         var normalsArray = [];
@@ -46,10 +49,17 @@ class glObject {
         var vTexCoord = gl.getAttribLocation( program, "vTexCoord" );
         gl.vertexAttribPointer( vTexCoord, 2, gl.FLOAT, false, 0, 0 );
         gl.enableVertexAttribArray( vTexCoord );
+
+        gl.uniform1f(gl.getUniformLocation(program, "shininess"), (this.options.shininess) ? this.options.shininess : 2.0 );
+
+        gl.bindTexture( gl.TEXTURE_2D, this.texture );
     }
 
-    draw() {
+    draw(modelView) {
         this.switchToBuffer();
+        if(modelView) {
+            gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(mult(modelView, translate(this.center))) );
+        }
         gl.drawArrays( gl.TRIANGLES, this.length * this.offset, this.length );
     }
 }
@@ -102,7 +112,69 @@ class Frog extends glObject {
 
 class Ground extends glObject {
     constructor() {
-        super(["./models/plane.ply"]);
+        super(["./models/plane.ply"], {"tex": document.getElementById("roadTexture")});
+        this.road = new Road();
+    }
+
+    draw(modelView){
+        super.draw(modelView);
+        this.road.draw(modelView);
+    }
+}
+
+class Road extends glObject {
+    constructor() {
+        super(["./models/road.ply"], {"tex": document.getElementById("roadTexture")});
+    }
+}
+
+class Car extends glObject {
+    constructor() {
+        super([ "./models/car_body.ply"], {"tex": document.getElementById("carTexture")});
+        this.tires = new Tires();
+        this.center = vec3(0,0,-2);
+    }
+
+    draw(modelView) {
+        var transform = (modelView) ? modelView : mat4();
+        this.center = mult(translate(-1/30.0, 0, 0), vec4(this.center,1)).slice(0,3);
+        this.center[0] = this.center[0] % 14;
+        super.draw(transform);
+        this.tires.draw(mult(transform, translate(this.center))); 
+    }
+}
+
+class Tires extends glObject {
+    constructor() {
+        if(!!Tires.instance){
+            return Tires.instance;
+        }
+        super(["./models/car_tire.ply"]);
+        this.rotationOffset = 0;
+
+        Tires.instance = this;
+        return this;
+    }
+
+    draw(modelView){
+        var transform = sign => mult(mult(modelView, translate(sign * 0.6,0.111,0)), rotateZ(-this.rotationOffset));
+        super.draw(transform(1));
+        super.draw(transform(-1));
+        this.rotationOffset += 16;
+    }
+}
+
+class Log extends glObject {
+    constructor() {
+        super(["./models/log.ply"], {"tex": document.getElementById("logTexture"), "shininess": 4.0});  
+        this.center = vec3(0,0,-14);
+        this.bobOffset = 0;
+    }
+
+    draw(modelView) {
+        this.center = mult(translate(0,Math.sin(this.bobOffset/16) * 0.005, 0), vec4(this.center, 1)).slice(0,3);
+        this.bobOffset++;
+        super.draw(modelView);
     }
 }
 
@@ -112,8 +184,8 @@ function configureTexture( image, program ) {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image );
     gl.generateMipmap( gl.TEXTURE_2D );
-    gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE );
-    gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE );
+    gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT );
+    gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT );
     gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR );
     var anisotropyExtension = gl.getExtension("EXT_texture_filter_anisotropic");
     if( anisotropyExtension ) {
@@ -123,6 +195,7 @@ function configureTexture( image, program ) {
     gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR );
     
     gl.uniform1i(gl.getUniformLocation(program, "texture"), 0);
+    return texture;
 }
 
 function readFilePly(s) {

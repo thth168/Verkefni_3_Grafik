@@ -23,7 +23,9 @@ window.onload = function init() {
 
     groundObject = new Ground();
     frogObject = new Frog();
-    configureTexture(this.document.getElementById("texture"), program);
+    carObject = new Car();
+    logObject = new Log();
+    // configureTexture(this.document.getElementById("texture"), program);
 
     modelViewMatrixLoc = gl.getUniformLocation( program, "modelViewMatrix" );
     projectionMatrixLoc = gl.getUniformLocation( program, "projectionMatrix" );
@@ -78,7 +80,7 @@ window.onload = function init() {
 function render() {
 
     if(Date.now() - lastFrame > frameDelta){
-        trackFPS();
+        // trackFPS();
         frogObject.animate();
         lastFrame = Date.now();
     }
@@ -104,11 +106,11 @@ function render() {
     gl.uniformMatrix3fv(normalMatrixLoc, false, flatten(normalMatrix) );
 
     frogObject.draw();
-
+    
     modelViewMatrix = mult(modelViewMatrix, translate(worldOffset));
-    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix) );
-    groundObject.draw();
-
+    groundObject.draw(modelViewMatrix);
+    carObject.draw(modelViewMatrix);
+    logObject.draw(modelViewMatrix);
     window.requestAnimFrame(render);
 }
 
