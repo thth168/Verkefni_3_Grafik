@@ -74,16 +74,38 @@ void main()
 <script type="text/javascript" src="./modules/globals.js"></script>
 <script type="text/javascript" src="./modules/glObject.js"></script>
 <script type="text/javascript" src="DepilKula.js"></script>
+<link rel="stylesheet" href="./style/styles.css">
 
 <body>
-    <canvas id="gl-canvas" width="512" height="512">
-        Oops ... your browser doesn't support the HTML5 canvas element</canvas>
-    <img id="texture" src="./textures/Main_Tex.png" hidden></img>
-    <img id="grassTexture" src="./textures/grass.png" hidden>
-    <img id="logTexture" src="./textures/log.png" hidden>
-    <img id="roadTexture" src="./textures/road.png" hidden>
-    <img id="waterTexture" src="./textures/water.png" hidden>
-    <img id="wallTexture" src="./textures/Wall.png" hidden>
+    <h1>Frogger</h1>
+    <div class="stats">
+        <div class="up">
+            <p>1-up</p>
+            <p id="currScore">.....</p>
+        </div>
+        <div class="hi">
+            <p>Hi-Score</p>
+            <p id="hiScore">.....</p>
+        </div>
+    </div>
+    <div class="gameContainer">
+        <canvas id="gl-canvas" width="512" height="512">
+            Oops ... your browser doesn't support the HTML5 canvas element</canvas>
+        <img id="texture" src="./textures/Main_Tex.png" hidden>
+        <img id="grassTexture" src="./textures/grass.png" hidden>
+        <img id="logTexture" src="./textures/log.png" hidden>
+        <img id="roadTexture" src="./textures/road.png" hidden>
+        <img id="waterTexture" src="./textures/water.png" hidden>
+        <img id="wallTexture" src="./textures/Wall.png" hidden>
+        <div id="gameOver" class="prompt" hidden>
+            <h1>Game Over</h1>
+        </div>
+    </div>
+    <div class="lives" id="lives">
+        <img src="./textures/frogger.png">
+        <img src="./textures/frogger.png">
+        <img src="./textures/frogger.png">
+    </div>
 </body>
 
 </html>

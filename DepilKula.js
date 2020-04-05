@@ -9,6 +9,8 @@
 window.onload = function init() {
 
     canvas = document.getElementById("gl-canvas");
+    liveImages = document.getElementById("lives").children;
+    if (window.localStorage.getItem("HighScore") == null) window.localStorage.setItem("HighScore", 0);
 
     gl = WebGLUtils.setupWebGL(canvas);
     if (!gl) { alert("WebGL isn't available"); }
@@ -68,21 +70,23 @@ window.onload = function init() {
         } else {
             zDist -= 1;
         }
+        if (zDist < 3) zDist = 3;
+        if (zDist > 11) zDist = 11;
     });
 
     window.addEventListener("keypress", function (e) {
         switch (e.key) {
             case 'w':
-                frogObject.startAnimation("jump", glObject.FORWARD_VEC3, vec3(0, 0, 0));
+                frogObject.startAnimation("jump", frogObject.FORWARD_VEC3, vec3(0, 0, 0));
                 break;
             case 's':
-                frogObject.startAnimation("jump", glObject.BACKWARD_VEC3, vec3(0, 180, 0));
+                frogObject.startAnimation("jump", frogObject.BACKWARD_VEC3, vec3(0, 180, 0));
                 break;
             case 'a':
-                frogObject.startAnimation("jump", glObject.LEFT_VEC3, vec3(0, -90, 0));
+                frogObject.startAnimation("jump", frogObject.LEFT_VEC3, vec3(0, -90, 0));
                 break;
             case 'd':
-                frogObject.startAnimation("jump", glObject.RIGHT_VEC3, vec3(0, 90, 0));
+                frogObject.startAnimation("jump", frogObject.RIGHT_VEC3, vec3(0, 90, 0));
                 break;
         }
     });
@@ -126,6 +130,15 @@ function render() {
     carObject.draw(modelViewMatrix);
     logObject.draw(modelViewMatrix);
     window.requestAnimFrame(render);
+    document.getElementById("currScore").innerHTML = ("00000" + frogObject.points).slice(-5);
+    document.getElementById("hiScore").innerHTML = ("00000" + window.localStorage.getItem("HighScore")).slice(-5);
+    for (let i = 0; i < 3; i++) {
+        if (i < frogObject.lives) {
+            liveImages[i].hidden = false;
+        } else {
+            liveImages[i].hidden = true;
+        }
+    }
 }
 
 var FPSCounter = 0;

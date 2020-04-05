@@ -1,10 +1,10 @@
 class glObject {
-    static FORWARD_VEC3 = vec3(0, 0, 1)
-    static BACKWARD_VEC3 = vec3(0, 0, -1)
-    static LEFT_VEC3 = vec3(1, 0, 0)
-    static RIGHT_VEC3 = vec3(-1, 0, 0)
-
     constructor(location, options) {
+        this.FORWARD_VEC3 = vec3(0, 0, 1);
+        this.BACKWARD_VEC3 = vec3(0, 0, -1);
+        this.LEFT_VEC3 = vec3(1, 0, 0);
+        this.RIGHT_VEC3 = vec3(-1, 0, 0);
+
         this.length = 0;
         this.options = (options) ? options : {};
         this.center = vec3(0, 0, 0);
@@ -94,61 +94,133 @@ class Frog extends glObject {
         };
         this.runningAnimation = [0, 0];
         this.movementDirection = vec3(0, 0, 0);
+        this.lives = 3;
+        this.slots = [
+            [vec3(-13, 0, -24), false],
+            [vec3(-7, 0, -24), false],
+            [vec3(-1, 0, -24), false],
+            [vec3(5, 0, -24), false],
+            [vec3(11, 0, -24), false]
+        ];
+        this.maxDistance = -1;
+        this.points = 0;
+        this.frozen = false;
+        this.transformation = mat4();
     }
 
     startAnimation(name, direction, rotation) {
-        if (!(worldOffset[2] <= 1 && direction[2] == -1)) {
-            if (this.runningAnimation[1] == 0) {
-                var animation = this.animations(name);
-                this.runningAnimation = [animation.start - 1, animation.end];
-                this.movementDirection = direction;
-                this.rotation = rotation;
+        if (!this.frozen) {
+            if (worldOffset[0] <= -11 && direction[0] == -1) return;
+            if (worldOffset[0] >= 12 && direction[0] == 1) return;
+
+            if (!(worldOffset[2] <= 1 && direction[2] == -1)) {
+                if (this.runningAnimation[1] == 0) {
+                    var animation = this.animations(name);
+                    this.runningAnimation = [animation.start - 1, animation.end];
+                    this.movementDirection = direction;
+                    this.rotation = rotation;
+                    if (direction[2] == 1 && worldOffset[2] > this.maxDistance) {
+                        this.points += 10;
+                        this.maxDistance = worldOffset[2];
+                    }
+                }
+                if (worldOffset[2] >= 21 && direction[2] == 1) {
+                    for (let i = 0; i < this.slots.length; i++) {
+                        if (Math.abs(worldOffset[0] + this.slots[i][0][0]) < 1 && !this.slots[i][1]) {
+                            this.points += 50;
+                            worldOffset = vec3(0, 0, 0);
+                            this.slots[i][1] = true;
+                            if (!this.slots.some(x => !x[1])) {
+                                this.slots.forEach(x => x[1] = false);
+                            }
+                            this.runningAnimation = [0, 0];
+                            this.maxDistance = 0;
+                            return;
+                        }
+                    }
+                    this.gameOver(translate(0, -2, 0));
+                }
             }
         }
     }
 
     checkCollide(cars, logs) {
-        for (let i = 0; i < cars.carCenters.length; i++) {
-            if (Math.abs(cars.carCenters[i][2] + worldOffset[2]) <= 0.01 && Math.abs(cars.carCenters[i][0] + worldOffset[0]) < 1) {
-                this.gameOver();
-                return;
-            }
-        }
-        if (worldOffset[2] >= 13.9 && worldOffset[2] <= 22) {
-            var water = true;
-            for (let i = 0; i < logs.logCenters.length; i++) {
-                if (Math.abs(logs.logCenters[i][2] + worldOffset[2]) <= 1) {
-                    if (Math.abs(logs.logCenters[i][0] + worldOffset[0]) < 1.5) {
-                        water = false;
-                        worldOffset[0] = -logs.logCenters[i][0];
-                        break;
-                    }
+        if (!this.frozen) {
+            for (let i = 0; i < cars.carCenters.length; i++) {
+                if (Math.abs(cars.carCenters[i][2] + worldOffset[2]) <= 0.01 && Math.abs(cars.carCenters[i][0] + worldOffset[0]) < 1) {
+                    this.gameOver(scalem(1, 0.01, 1));
                 }
             }
-            if (water) this.gameOver(); return;
+            if (worldOffset[2] >= 13.9 && worldOffset[2] <= 22) {
+                var water = true;
+                for (let i = 0; i < logs.logCenters.length; i++) {
+                    if (Math.abs(logs.logCenters[i][2] + worldOffset[2]) <= 1) {
+                        if (Math.abs(logs.logCenters[i][0] + worldOffset[0]) < 1.5) {
+                            water = false;
+                            break;
+                        }
+                    }
+                }
+                if (water) this.gameOver(rotateZ(180));
+            }
+            if (worldOffset[0] < -13 || worldOffset[0] > 15) this.gameOver();
         }
-        if (worldOffset[0] < -13 || worldOffset[0] > 15) this.gameOver();
     }
 
-    gameOver() {
-        alert("Game Over");
-        this.runningAnimation = [0, 0];
-        worldOffset = vec3();
+    gameOver(transformation) {
+        this.lives--;
+        if (this.lives == 0) {
+            document.getElementById("gameOver").hidden = false;
+            this.lives = 3;
+            if (window.localStorage.getItem("HighScore") < this.points) {
+                window.localStorage.setItem("HighScore", this.points);
+            }
+            this.slots.forEach(x => x[1] = false);
+            this.points = 0;
+        }
+        this.frozen = true;
+        this.transformation = (transformation) ? transformation : mat4();
+        setTimeout(() => {
+            this.runningAnimation = [0, 0];
+            this.rotation = this.FORWARD_VEC3;
+            this.maxDistance = 0;
+            worldOffset = vec3();
+            this.frozen = false;
+            this.transformation = mat4();
+            document.getElementById("gameOver").hidden = true;
+        }, 2000);
     }
 
     animate() {
-        if (this.runningAnimation[1] - this.runningAnimation[0] > 0) {
-            this.runningAnimation[0]++;
-            this.offset = this.runningAnimation[0];
-            worldOffset = add(worldOffset, mult(scalem(this.movementDirection), vec4(2 / 9, 2 / 9, 2 / 9, 0)).slice(0, 3));
-        } else {
-            this.runningAnimation = [0, 0];
-            this.offset = 0;
+        if (!this.frozen) {
+            if (this.runningAnimation[1] - this.runningAnimation[0] > 0) {
+                this.runningAnimation[0]++;
+                this.offset = this.runningAnimation[0];
+                worldOffset = add(worldOffset, mult(scalem(this.movementDirection), vec4(2 / 9, 2 / 9, 2 / 9, 0)).slice(0, 3));
+            } else {
+                this.runningAnimation = [0, 0];
+                this.offset = 0;
+            }
+            if ((worldOffset[2] - 14) >= -0.5) {
+                const log = new Log();
+                var movespeed = log.laneSpeeds[Math.abs(Math.round((worldOffset[2] - 14) / 2))];
+                worldOffset[0] -= movespeed;
+            }
         }
     }
 
     draw(modelView) {
-        super.draw(modelView);
+
+        super.draw(mult(modelView, this.transformation));
+        this.offset = 0;
+        var tempRotate = this.rotation;
+        this.rotation = vec3(0, 180, 0);
+        for (let i = 0; i < this.slots.length; i++) {
+            if (this.slots[i][1])
+                super.draw(mult(modelView, translate(add(worldOffset, this.slots[i][0]))));
+        }
+        this.rotation = tempRotate;
+
     }
 }
 
@@ -238,6 +310,9 @@ class Tires extends glObject {
 
 class Log extends glObject {
     constructor() {
+        if (!!Log.instance) {
+            return Log.instance;
+        }
         super(["./models/log.ply"], { "tex": document.getElementById("logTexture"), "shininess": 4.0 });
         this.center = vec3(0, 0, -14);
         this.logCenters = [
@@ -327,6 +402,8 @@ class Log extends glObject {
             1 / 60
         ];
         this.bobOffset = 0;
+        Log.instance = this;
+        return this;
     }
 
     draw(modelView) {

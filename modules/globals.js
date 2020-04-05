@@ -1,5 +1,6 @@
 var canvas;
 var gl;
+var liveImages;
 
 var pointsArray = [];
 var normalsArray = [];
@@ -11,7 +12,7 @@ var spinY = 0;
 var origX;
 var origY;
 
-var zDist = 5.0;
+var zDist = 11.0;
 
 var fovy = 45.0;
 var near = 0.2;
@@ -20,10 +21,10 @@ var far = 200.0;
 var frameDelta = 8;
 var lastFrame;
 
-var lightPosition = vec4(1.0, 1.0, 1.0, 0.0 );
-var lightAmbient = vec4(0.2, 0.2, 0.2, 1.0 );
-var lightDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
-var lightSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
+var lightPosition = vec4(1.0, 1.0, 1.0, 0.0);
+var lightAmbient = vec4(0.2, 0.2, 0.2, 1.0);
+var lightDiffuse = vec4(1.0, 1.0, 1.0, 1.0);
+var lightSpecular = vec4(1.0, 1.0, 1.0, 1.0);
 
 var program;
 
@@ -40,4 +41,4 @@ var groundObject;
 var frogObject;
 var carObject;
 var logObject;
-var worldOffset = vec3(0,0,0);
+var worldOffset = vec3(0, 0, 0);
